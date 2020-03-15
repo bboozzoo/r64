@@ -1,0 +1,13 @@
+[package]
+name = "r64"
+version = "0.1.0"
+authors = ["Maciek Borzecki <maciek.borzecki@gmail.com>"]
+edition = "2018"
+license = "MIT"
+keywords = ["emulator", "c64"]
+description = """
+A simple C64 emulator.
+"""
+
+[dependencies]
+log = "0.4"
