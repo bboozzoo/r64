@@ -20,9 +20,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 pub trait Clocked {
-    fn tick(&self);
+    fn tick(&mut self);
 }
 
-pub trait MemoryMapped {
-    fn range(self) -> (u32, u32);
+pub trait MemoryMapped<AddrSize> {
+    fn range(self) -> (AddrSize, AddrSize);
+}
+
+pub trait Memory<AddrSize, ValueSize> {
+    fn read(&self, addr : AddrSize) -> ValueSize;
+    fn write(&mut self, addr : AddrSize, value: ValueSize);
 }
