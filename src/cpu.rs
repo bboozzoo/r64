@@ -24,11 +24,38 @@ mod CPU6510 {
     // CPU6510 is a model of MOS 6510 Microprocessor.
     // Based on http://archive.6502.org/datasheets/mos_6510_mpu.pdf
 
+    #[derive(Copy, Clone, Default)]
     struct ProgramCounter {
+        // TODO: reduce to single u16?
         PCH: u8,
         PCL: u8,
     }
 
+    impl ProgramCounter {
+        fn inc(&mut self) {
+            if self.PCL == 0xff {
+                self.PCH += 1;
+                self.PCL = 0;
+            } else {
+                self.PCL += 1;
+            }
+        }
+
+        fn set(&mut self, addr: u16) {
+            self.PCL = (addr & 0xff) as u8;
+            self.PCH = (addr >> 8) as u8;
+        }
+    }
+
+    impl From<ProgramCounter> for u16 {
+        fn from(pc: ProgramCounter) -> u16 {
+            let mut v = (pc.PCH as u16) << 8;
+            v = v | (pc.PCL as u16);
+            return v;
+        }
+    }
+
+    #[derive(Default)]
     struct StatusRegister {
         N: bool, // Negative
         O: bool, // Overflow
@@ -39,6 +66,7 @@ mod CPU6510 {
         C: bool, // Carry
     }
 
+    #[derive(Default)]
     struct Registers {
         A: u8,              // Accumulator
         Y: u8,              // Y index register
@@ -46,18 +74,6 @@ mod CPU6510 {
         PC: ProgramCounter, // (PCH|PCL) program counter
         S: u16,             // Stack pointer
         P: StatusRegister,  // Processor status register
-    }
-
-    struct Model {
-        r: Registers,
-    }
-
-    use crate::component;
-
-    impl component::Clocked for Model {
-        fn tick(&self) {
-            // noop
-        }
     }
 
     enum Instruction {
@@ -132,7 +148,68 @@ mod CPU6510 {
         TYA, // Transfer index Y to Accumulator
     }
 
-    impl Model {
-        // TODO
+    pub struct CPU<'a> {
+        r: Registers,
+
+        mem: &'a component::Memory<u16, u8>,
+    }
+
+    use crate::component;
+
+    impl component::Clocked for CPU<'_> {
+        fn tick(&mut self) {
+            self.dispatch_one();
+        }
+    }
+
+    impl CPU<'_> {
+        fn dispatch_one(&mut self) {
+            let _ = self.fetch_insn();
+        }
+
+        fn fetch_insn(&mut self) -> u8 {
+            let insn = self.mem.read(u16::from(self.r.PC));
+            self.r.PC.inc();
+            return insn;
+        }
+    }
+
+    pub fn new_with_memory(mem: &component::Memory<u16, u8>) -> CPU {
+        return CPU {
+            r: Default::default(),
+            mem: mem,
+        };
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn pc() {
+            let mut pc: ProgramCounter = Default::default();
+            for i in 0..300 {
+                assert_eq!(u16::from(pc), i);
+                pc.inc();
+            }
+        }
+
+        impl component::Memory<u16, u8> for [u8; 256] {
+            fn read(&self, addr: u16) -> u8 {
+                return self[usize::from(addr)];
+            }
+            fn write(&mut self, addr: u16, value: u8) {
+                self[usize::from(addr)] = value;
+            }
+        }
+
+        #[test]
+        fn cpu_simple() {
+            let mut mem: [u8; 256] = [0; 256];
+            let mut cpu = new_with_memory(&mem);
+            assert_eq!(u16::from(cpu.r.PC), 0);
+            cpu.dispatch_one();
+            assert_eq!(u16::from(cpu.r.PC), 1);
+        }
     }
 }
