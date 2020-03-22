@@ -61,75 +61,75 @@ mod CPU6510 {
     }
 
     enum Instruction {
-        ADS,                    // Add memory to Accumulator with Carry
-        AND,                    // AND memory with Accumulator
-        ASL,                    // Shift left one bit (memory or Accumulator)
+        ADS, // Add memory to Accumulator with Carry
+        AND, // AND memory with Accumulator
+        ASL, // Shift left one bit (memory or Accumulator)
 
-        BCC,                    // Branch on Carry clear
-        BCS,                    // Branch on Carry set
-        BEQ,                    // Branch on result Zero
-        BIT,                    // Test bits in memory with Accumulator
-        BMI,                    // Branch on result Negative
-        BNE,                    // Branch on result not Zero
-        BPL,                    // Branch on result not plus
-        BRK,                    // Force break
-        BVC,                    // Branch on Overflow clear
-        BVS,                    // Branch on Overflow set
+        BCC, // Branch on Carry clear
+        BCS, // Branch on Carry set
+        BEQ, // Branch on result Zero
+        BIT, // Test bits in memory with Accumulator
+        BMI, // Branch on result Negative
+        BNE, // Branch on result not Zero
+        BPL, // Branch on result not plus
+        BRK, // Force break
+        BVC, // Branch on Overflow clear
+        BVS, // Branch on Overflow set
 
-        CLC,                    // Clear carry flag
-        CLD,                    // Clear Decimal mode
-        CLI,                    // Clear Interrupt disable bit
-        CLV,                    // Clear Overflow bit
-        CMP,                    // Compare memory and Accumulator
-        CPX,                    // Compare memory and index X
-        CPY,                    // Compare memory and index Y
+        CLC, // Clear carry flag
+        CLD, // Clear Decimal mode
+        CLI, // Clear Interrupt disable bit
+        CLV, // Clear Overflow bit
+        CMP, // Compare memory and Accumulator
+        CPX, // Compare memory and index X
+        CPY, // Compare memory and index Y
 
-        DEC,                    // Decrement memory by one
-        DEX,                    // Decrement index X by one
-        DEY,                    // Decrement index Y by one
+        DEC, // Decrement memory by one
+        DEX, // Decrement index X by one
+        DEY, // Decrement index Y by one
 
-        EOR,                    // (exclusive OR) XOR memory or Accumulator
+        EOR, // (exclusive OR) XOR memory or Accumulator
 
-        INC,                    // Increment memory by one
-        INX,                    // Increment index X by one
-        INY,                    // Increment index Y by one
+        INC, // Increment memory by one
+        INX, // Increment index X by one
+        INY, // Increment index Y by one
 
-        JMP,                    // Jump to new location
-        JSR,                    // Jump to new location saving return address
+        JMP, // Jump to new location
+        JSR, // Jump to new location saving return address
 
-        LDA,                    // Load Accumulator with memory
-        LDX,                    // Load index X with memory
-        LDY,                    // Load index Y with memory
-        LSR,                    // Shift right one bit (memory or Accumulator)
+        LDA, // Load Accumulator with memory
+        LDX, // Load index X with memory
+        LDY, // Load index Y with memory
+        LSR, // Shift right one bit (memory or Accumulator)
 
-        NOP,                    // noop
+        NOP, // noop
 
-        ORA,                    // OR memory with Accumulator
+        ORA, // OR memory with Accumulator
 
-        PHA,                    // Push Accumulator on Stack
-        PHP,                    // Push processor status on Stack
-        PLA,                    // Pull Accumulator from Stack
-        PLP,                    // Pull processor status from Stack
+        PHA, // Push Accumulator on Stack
+        PHP, // Push processor status on Stack
+        PLA, // Pull Accumulator from Stack
+        PLP, // Pull processor status from Stack
 
-        ROL,                    // Rotate one bit left (memory or Accumulator)
-        ROR,                    // Rotate one bit right (memory or Accumulator)
-        RTI,                    // Return from interrupt
-        RTS,                    // Return from subroutine
+        ROL, // Rotate one bit left (memory or Accumulator)
+        ROR, // Rotate one bit right (memory or Accumulator)
+        RTI, // Return from interrupt
+        RTS, // Return from subroutine
 
-        SBC,                    // Subtract memory from Accumulator with Borrow
-        SEC,                    // Set Carry flag
-        SED,                    // Set Decimal flag
-        SEI,                    // Set Interrupt disable flag
-        STA,                    // Store Accumulator in memory
-        STX,                    // Store index X in memory
-        STY,                    // Store index Y in memory
+        SBC, // Subtract memory from Accumulator with Borrow
+        SEC, // Set Carry flag
+        SED, // Set Decimal flag
+        SEI, // Set Interrupt disable flag
+        STA, // Store Accumulator in memory
+        STX, // Store index X in memory
+        STY, // Store index Y in memory
 
-        TAX,                    // Transfer Accumulator to index X
-        TAY,                    // Transfer Accumulator to index Y
-        TSX,                    // Transfer Stack pointer to index X
-        TXA,                    // Transfer index X to Accumulator
-        TXS,                    // Transfer index X to Stack register
-        TYA,                    // Transfer index Y to Accumulator
+        TAX, // Transfer Accumulator to index X
+        TAY, // Transfer Accumulator to index Y
+        TSX, // Transfer Stack pointer to index X
+        TXA, // Transfer index X to Accumulator
+        TXS, // Transfer index X to Stack register
+        TYA, // Transfer index Y to Accumulator
     }
 
     impl Model {
