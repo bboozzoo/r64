@@ -27,7 +27,7 @@ pub trait MemoryMapped<AddrSize> {
     fn range(self) -> (AddrSize, AddrSize);
 }
 
-pub trait Memory<AddrSize, ValueSize> {
-    fn read(&self, addr : AddrSize) -> ValueSize;
-    fn write(&mut self, addr : AddrSize, value: ValueSize);
+pub trait Memory<AddrSize, DataSize> {
+    fn read(&self, addr : AddrSize) -> DataSize;
+    fn write(&mut self, addr : AddrSize, value: DataSize);
 }
