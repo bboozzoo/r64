@@ -210,9 +210,9 @@ mod CPU6510 {
         }
 
         fn fetch_addr(&self, addr: u16) -> u16 {
-            let mut val = self.mem.read(addr) as u16;
+            let mut val = self.mem.read(addr+1) as u16;
             val = val << 8;
-            val = val | (self.mem.read(addr+1) as u16);
+            val = val | (self.mem.read(addr) as u16);
             return val;
         }
 
@@ -307,8 +307,8 @@ mod CPU6510 {
             let prog_start = ADDR_STACK_END + 1;
             let (lo, hi) = ((prog_start & 0xff), (prog_start >> 8 & 0xff));
 
-            mem[ADDR_RESET_VECTOR as usize] = hi as u8;
-            mem[(ADDR_RESET_VECTOR+1) as usize] = lo as u8;
+            mem[ADDR_RESET_VECTOR as usize] = lo as u8;
+            mem[(ADDR_RESET_VECTOR+1) as usize] = hi as u8;
 
             let mut cpu = new_with_memory(&mut mem);
             cpu.reset();
