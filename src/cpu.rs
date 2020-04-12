@@ -184,74 +184,92 @@ mod CPU6510 {
         TYA, // Transfer index Y to Accumulator
     }
 
-    pub struct CPU<'a> {
+    pub struct CPU {
         r: Registers,
-
-        mem: &'a mut dyn component::Memory<u16, u8>,
 
         wait : u32,
     }
 
     use crate::component;
 
-    impl component::Clocked for CPU<'_> {
+    impl component::Clocked for CPU {
         fn tick(&mut self) {
             if self.wait > 0 {
                 self.wait = self.wait - 1;
-            } else {
-                self.dispatch_one();
             }
         }
     }
 
-    impl CPU<'_> {
-        fn dispatch_one(&mut self) {
-            let _ = self.fetch_insn();
+    type Memory = dyn component::Memory<u16, u8>;
+
+    impl CPU {
+        fn invoke_for(&mut self, mem: &mut Memory) {
+            self.dispatch_one(mem)
         }
 
-        fn fetch_insn(&mut self) -> u8 {
-            let insn = self.mem.read(u16::from(self.r.PC));
+        fn dispatch_one(&mut self, mem: &mut Memory) {
+            let ins = self.fetch_insn(mem);
+            match(ins) {
+                0x00 => self.op_brk(mem),
+                0xea => self.op_nop(mem),
+                _ => panic!("illegal")
+            }
+        }
+
+        fn fetch_insn(&mut self, mem: &Memory) -> u8 {
+            let insn = mem.read(u16::from(self.r.PC));
             self.r.PC.inc();
             return insn;
         }
 
-        fn fetch_addr(&self, addr: u16) -> u16 {
-            let mut val = self.mem.read(addr+1) as u16;
+        fn fetch_addr(&self, addr: u16, mem : &Memory) -> u16 {
+            let mut val = mem.read(addr+1) as u16;
             val = val << 8;
-            val = val | (self.mem.read(addr) as u16);
+            val = val | (mem.read(addr) as u16);
             return val;
         }
 
-        fn reset(&mut self) {
+        fn reset(&mut self, mem : &Memory) {
             self.r = Default::default();
-            self.r.PC.set(self.fetch_addr(ADDR_RESET_VECTOR));
+            self.r.PC.set(self.fetch_addr(ADDR_RESET_VECTOR, mem));
             self.r.S = 0xff;
         }
 
         // push onto the stack
-        fn push(&mut self, data: u8) {
+        fn push(&mut self, data: u8, mem : &mut Memory) {
             // TODO: check limits
-            self.mem.write(ADDR_STACK_START + (self.r.S as u16), data);
+            mem.write(ADDR_STACK_START + (self.r.S as u16), data);
             self.r.S = self.r.S - 1;
         }
 
         // pop from the stack
-        fn pop(&mut self) -> u8 {
+        fn pop(&mut self, mem : &Memory) -> u8 {
             // TODO: check limits
             self.r.S = self.r.S + 1;
-            self.mem.read(ADDR_STACK_START + (self.r.S as u16))
+            mem.read(ADDR_STACK_START + (self.r.S as u16))
         }
 
-        fn op_brk(&mut self) {
+        fn pop_addr(&mut self, mem: &Memory) -> u16 {
+            let low = self.pop(mem);
+            let high = self.pop(mem);
+
+            (high as u16) << 8 | low as u16
+        }
+
+        fn op_brk(&mut self, mem : &mut Memory) {
             let mut pc = self.r.PC;
             pc.inc();
-            self.push(pc.PCH);
-            self.push(pc.PCL);
-            self.push(u8::from(self.r.P));
+            self.push(pc.PCH, mem);
+            self.push(pc.PCL, mem);
+            self.push(u8::from(self.r.P), mem);
             self.r.P.I = true;  // interrupt disable
             self.r.P.B = true;  // BRK command
             self.schedule_wait(7); // 7 cycles
             self.r.PC.set(ADDR_IRQ_VECTOR); // IRQ handler
+        }
+
+        fn op_nop(&mut self, mem: &Memory) {
+            // nop
         }
 
         fn schedule_wait(&mut self, wait : u32) {
@@ -261,14 +279,13 @@ mod CPU6510 {
         fn stall(&self) -> bool {
             self.wait > 0
         }
-    }
 
-    pub fn new_with_memory(mem: &mut dyn component::Memory<u16, u8>) -> CPU {
-        return CPU {
-            r: Default::default(),
-            mem: mem,
-            wait: 0,
-        };
+        fn new() -> CPU {
+            return CPU {
+                r: Default::default(),
+                wait: 0,
+            };
+        }
     }
 
     #[cfg(test)]
@@ -322,9 +339,10 @@ mod CPU6510 {
         #[test]
         fn cpu_simple() {
             let mut mem: [u8; 65535] = [0; 65535];
-            let mut cpu = new_with_memory(&mut mem);
+            let mut cpu = CPU::new();
+            cpu.reset(&mut mem);
             assert_eq!(u16::from(cpu.r.PC), 0);
-            cpu.dispatch_one();
+            cpu.dispatch_one(&mut mem);
             assert_eq!(u16::from(cpu.r.PC), 1);
         }
 
@@ -337,8 +355,8 @@ mod CPU6510 {
             mem[ADDR_RESET_VECTOR as usize] = lo as u8;
             mem[(ADDR_RESET_VECTOR+1) as usize] = hi as u8;
 
-            let mut cpu = new_with_memory(&mut mem);
-            cpu.reset();
+            let mut cpu = CPU::new();
+            cpu.reset(&mem);
 
             assert_eq!(cpu.r.S, 0xff);
             assert_eq!(u8::from(cpu.r.P), 1 << 5);
@@ -348,10 +366,27 @@ mod CPU6510 {
         #[test]
         fn op_brk() {
             let mut mem: [u8; 65535] = [0; 65535];
-            let mut cpu = new_with_memory(&mut mem);
-            cpu.reset();
+            let mut cpu = CPU::new();
+            cpu.reset(&mem);
+            // set some PC address and a carry bit
+            cpu.r.PC.set(0x1234);
+            cpu.r.P.C = true;
 
-            cpu.dispatch_one();
+            cpu.op_brk(&mut mem);
+            assert_eq!(cpu.r.P, StatusRegister{
+                B: true,
+                I: true,
+                C: true,
+                ..Default::default()
+            });
+            assert_eq!(u16::from(cpu.r.PC), ADDR_IRQ_VECTOR);
+            assert_eq!(cpu.wait, 7);
+            assert_eq!(StatusRegister::from(cpu.pop(&mem)),
+                       StatusRegister{
+                           C: true,
+                           ..Default::default()
+                       });
+            assert_eq!(cpu.pop_addr(&mem), 0x1234+1);
         }
 }
 }
