@@ -187,14 +187,20 @@ mod CPU6510 {
     pub struct CPU<'a> {
         r: Registers,
 
-        mem: &'a mut component::Memory<u16, u8>,
+        mem: &'a mut dyn component::Memory<u16, u8>,
+
+        wait : u32,
     }
 
     use crate::component;
 
     impl component::Clocked for CPU<'_> {
         fn tick(&mut self) {
-            self.dispatch_one();
+            if self.wait > 0 {
+                self.wait = self.wait - 1;
+            } else {
+                self.dispatch_one();
+            }
         }
     }
 
@@ -235,12 +241,33 @@ mod CPU6510 {
             self.r.S = self.r.S + 1;
             self.mem.read(ADDR_STACK_START + (self.r.S as u16))
         }
+
+        fn op_brk(&mut self) {
+            let mut pc = self.r.PC;
+            pc.inc();
+            self.push(pc.PCH);
+            self.push(pc.PCL);
+            self.push(u8::from(self.r.P));
+            self.r.P.I = true;  // interrupt disable
+            self.r.P.B = true;  // BRK command
+            self.schedule_wait(7); // 7 cycles
+            self.r.PC.set(ADDR_IRQ_VECTOR); // IRQ handler
+        }
+
+        fn schedule_wait(&mut self, wait : u32) {
+            self.wait = wait;
+        }
+
+        fn stall(&self) -> bool {
+            self.wait > 0
+        }
     }
 
-    pub fn new_with_memory(mem: &mut component::Memory<u16, u8>) -> CPU {
+    pub fn new_with_memory(mem: &mut dyn component::Memory<u16, u8>) -> CPU {
         return CPU {
             r: Default::default(),
             mem: mem,
+            wait: 0,
         };
     }
 
@@ -317,5 +344,14 @@ mod CPU6510 {
             assert_eq!(u8::from(cpu.r.P), 1 << 5);
             assert_eq!(u16::from(cpu.r.PC), ADDR_STACK_END + 1);
         }
-    }
+
+        #[test]
+        fn op_brk() {
+            let mut mem: [u8; 65535] = [0; 65535];
+            let mut cpu = new_with_memory(&mut mem);
+            cpu.reset();
+
+            cpu.dispatch_one();
+        }
+}
 }
