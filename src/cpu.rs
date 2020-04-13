@@ -337,7 +337,11 @@ mod CPU6510 {
         Illegal(u8),
     }
 
-    type Handler = fn(&mut CPU, Opcode, &mut Memory);
+    enum Handler {
+        CPUOnly(fn(&mut CPU, Opcode)),
+        MemRO(fn(&mut CPU, Opcode, &Memory)),
+        MemRW(fn(&mut CPU, Opcode, &mut Memory)),
+    }
 
     pub struct CPU {
         r: Registers,
@@ -359,53 +363,66 @@ mod CPU6510 {
 
     fn decode_ins(ins: u8) -> DecodeInstructionResult {
         macro_rules! ins {
-            ($what:tt) => {
-                DecodeInstructionResult::Instruction$what
-            };
-            ($opc:ident, $size:literal, $wait: literal, $handler:expr) => {
+            (mem_rw, $opc:ident, $size:literal, $wait: literal, $handler:expr) => {
                 DecodeInstructionResult::Instruction {
                     op: Opcode::$opc,
                     size: $size,
                     wait: $wait,
-                    handler: $handler,
+                    handler: Handler::MemRW($handler),
+                }
+            };
+            (mem_ro, $opc:ident, $size:literal, $wait: literal, $handler:expr) => {
+                DecodeInstructionResult::Instruction {
+                    op: Opcode::$opc,
+                    size: $size,
+                    wait: $wait,
+                    handler: Handler::MemRW($handler),
+                }
+            };
+            (cpu, $opc:ident, $size:literal, $wait: literal, $handler:expr) => {
+                DecodeInstructionResult::Instruction {
+                    op: Opcode::$opc,
+                    size: $size,
+                    wait: $wait,
+                    handler: Handler::CPUOnly($handler),
                 }
             };
         }
 
         match ins {
-            0x00 => ins!(BRK, 1, 7, CPU::op_brk),
+            0x00 => ins!(mem_rw, BRK, 1, 7, CPU::op_brk),
 
-            0x69 => ins!(ADC_imm, 2, 2, CPU::op_adc),
-            0x65 => ins!(ADC_zp, 2, 3, CPU::op_adc),
-            0x75 => ins!(ADC_zpX, 2, 4, CPU::op_adc),
-            0x6d => ins!(ADC_abs, 3, 4, CPU::op_adc),
-            0x7d => ins!(ADC_absX, 3, 4, CPU::op_adc),
-            0x79 => ins!(ADC_absY, 3, 4, CPU::op_adc),
-            0x61 => ins!(ADC_indX, 2, 6, CPU::op_adc),
-            0x71 => ins!(ADC_indY, 2, 5, CPU::op_adc),
+            0x69 => ins!(mem_rw, ADC_imm, 2, 2,  CPU::op_adc),
+            0x65 => ins!(mem_rw, ADC_zp, 2, 3,   CPU::op_adc),
+            0x75 => ins!(mem_rw, ADC_zpX, 2, 4,  CPU::op_adc),
+            0x6d => ins!(mem_rw, ADC_abs, 3, 4,  CPU::op_adc),
+            0x7d => ins!(mem_rw, ADC_absX, 3, 4, CPU::op_adc),
+            0x79 => ins!(mem_rw, ADC_absY, 3, 4, CPU::op_adc),
+            0x61 => ins!(mem_rw, ADC_indX, 2, 6, CPU::op_adc),
+            0x71 => ins!(mem_rw, ADC_indY, 2, 5, CPU::op_adc),
 
-            0x29 => ins!(AND_imm, 2, 2, CPU::op_and),
-            0x25 => ins!(AND_zp, 2, 3, CPU::op_and),
-            0x35 => ins!(AND_zpX, 2, 4, CPU::op_and),
-            0x2d => ins!(AND_abs, 3, 4, CPU::op_and),
-            0x3d => ins!(AND_absX, 3, 4, CPU::op_and),
-            0x39 => ins!(AND_absY, 3, 4, CPU::op_and),
-            0x21 => ins!(AND_indX, 2, 6, CPU::op_and),
-            0x31 => ins!(AND_indY, 2, 5, CPU::op_and),
+            0x29 => ins!(mem_rw, AND_imm, 2, 2,  CPU::op_and),
+            0x25 => ins!(mem_rw, AND_zp, 2, 3,   CPU::op_and),
+            0x35 => ins!(mem_rw, AND_zpX, 2, 4,  CPU::op_and),
+            0x2d => ins!(mem_rw, AND_abs, 3, 4,  CPU::op_and),
+            0x3d => ins!(mem_rw, AND_absX, 3, 4, CPU::op_and),
+            0x39 => ins!(mem_rw, AND_absY, 3, 4, CPU::op_and),
+            0x21 => ins!(mem_rw, AND_indX, 2, 6, CPU::op_and),
+            0x31 => ins!(mem_rw, AND_indY, 2, 5, CPU::op_and),
 
-            0x18 => ins!(CLC, 1, 2, CPU::op_clc),
-            0xd8 => ins!(CLD, 1, 2, CPU::op_cld),
-            0x58 => ins!(CLI, 1, 2, CPU::op_cli),
-            0xb8 => ins!(CLV, 1, 2, CPU::op_clv),
+            0x18 => ins!(cpu, CLC, 1, 2, CPU::op_clc),
+            0xd8 => ins!(cpu, CLD, 1, 2, CPU::op_cld),
+            0x58 => ins!(cpu, CLI, 1, 2, CPU::op_cli),
+            0xb8 => ins!(cpu, CLV, 1, 2, CPU::op_clv),
 
-            0xe8 => ins!(INX, 1, 2, CPU::op_inx),
-            0xc8 => ins!(INY, 1, 2, CPU::op_iny),
+            0xe8 => ins!(cpu, INX, 1, 2, CPU::op_inx),
+            0xc8 => ins!(cpu, INY, 1, 2, CPU::op_iny),
 
-            0xea => ins!(NOP, 1, 1, CPU::op_nop),
+            0xea => ins!(cpu, NOP, 1, 1, CPU::op_nop),
 
-            0x38 => ins!(SEC, 1, 2, CPU::op_sec),
-            0xf8 => ins!(SED, 1, 2, CPU::op_sed),
-            0x78 => ins!(SEI, 1, 2, CPU::op_sei),
+            0x38 => ins!(cpu, SEC, 1, 2, CPU::op_sec),
+            0xf8 => ins!(cpu, SED, 1, 2, CPU::op_sed),
+            0x78 => ins!(cpu, SEI, 1, 2, CPU::op_sei),
 
             _ => DecodeInstructionResult::Illegal(ins),
         }
@@ -432,7 +449,11 @@ mod CPU6510 {
                     wait,
                     handler,
                 } => {
-                    handler(self, op, mem);
+                    match handler {
+                        Handler::CPUOnly(on_cpu) => on_cpu(self, op),
+                        Handler::MemRO(on_ro_mem) => on_ro_mem(self, op, mem),
+                        Handler::MemRW(on_rw_mem) => on_rw_mem(self, op, mem),
+                    }
                 }
                 DecodeInstructionResult::Illegal(op) => {
                     panic!("illegal op: {}", op);
@@ -500,43 +521,45 @@ mod CPU6510 {
             self.r.PC.set(ADDR_IRQ_VECTOR); // IRQ handler
         }
 
-        fn op_nop(&mut self, _: Opcode, mem: &mut Memory) {
+        fn op_nop(&mut self, _: Opcode) {
             // nop
         }
 
-        fn op_adc(&mut self, op: Opcode, mem: &mut Memory) {}
+        fn op_adc(&mut self, op: Opcode, mem: &mut Memory) {
+        }
+
         fn op_and(&mut self, op: Opcode, mem: &mut Memory) {}
 
         fn op_illegal(&mut self, mem: &mut Memory) {
             panic!("illegal");
         }
-        fn op_inx(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_inx(&mut self, op: Opcode) {
             self.r.X += 1;
         }
-        fn op_iny(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_iny(&mut self, op: Opcode) {
             self.r.Y += 1;
         }
 
-        fn op_clc(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_clc(&mut self, op: Opcode) {
             self.r.P.C = false;
         }
-        fn op_cld(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_cld(&mut self, op: Opcode) {
             self.r.P.D = false;
         }
-        fn op_cli(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_cli(&mut self, op: Opcode) {
             self.r.P.I = false;
         }
-        fn op_clv(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_clv(&mut self, op: Opcode) {
             self.r.P.V = false;
         }
 
-        fn op_sec(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_sec(&mut self, op: Opcode) {
             self.r.P.C = true;
         }
-        fn op_sed(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_sed(&mut self, op: Opcode) {
             self.r.P.D = true;
         }
-        fn op_sei(&mut self, op: Opcode, mem: &mut Memory) {
+        fn op_sei(&mut self, op: Opcode) {
             self.r.P.I = true;
         }
     }
