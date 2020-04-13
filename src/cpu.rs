@@ -504,9 +504,7 @@ mod CPU6510 {
             // nop
         }
 
-        fn op_adc(&mut self, op: Opcode, mem: &mut Memory) {
-
-        }
+        fn op_adc(&mut self, op: Opcode, mem: &mut Memory) {}
         fn op_and(&mut self, op: Opcode, mem: &mut Memory) {}
 
         fn op_illegal(&mut self, mem: &mut Memory) {
@@ -518,7 +516,6 @@ mod CPU6510 {
         fn op_iny(&mut self, op: Opcode, mem: &mut Memory) {
             self.r.Y += 1;
         }
-
 
         fn op_clc(&mut self, op: Opcode, mem: &mut Memory) {
             self.r.P.C = false;
@@ -607,15 +604,15 @@ mod CPU6510 {
 
         #[test]
         fn cpu_reset() {
-            let mut mem: [u8; 65535] = [0; 65535];
+            let mut mem = &mut [0 as u8; 65535] as &mut dyn component::Memory<u16, u8>;
             let prog_start = ADDR_STACK_END + 1;
             let (lo, hi) = ((prog_start & 0xff), (prog_start >> 8 & 0xff));
 
-            mem[ADDR_RESET_VECTOR as usize] = lo as u8;
-            mem[(ADDR_RESET_VECTOR + 1) as usize] = hi as u8;
+            mem.write(ADDR_RESET_VECTOR, lo as u8);
+            mem.write(ADDR_RESET_VECTOR + 1, hi as u8);
 
             let mut cpu = CPU::new();
-            cpu.reset(&mem);
+            cpu.reset(mem);
 
             assert_eq!(cpu.r.S, 0xff);
             assert_eq!(u8::from(cpu.r.P), 1 << 5);
@@ -624,14 +621,14 @@ mod CPU6510 {
 
         #[test]
         fn op_brk() {
-            let mut mem: [u8; 65535] = [0; 65535];
+            let mut mem = &mut [0 as u8; 65535] as &mut dyn component::Memory<u16, u8>;
             let mut cpu = CPU::new();
-            cpu.reset(&mem);
+            cpu.reset(mem);
             // set some PC address and a carry bit
             cpu.r.PC.set(0x1234);
             cpu.r.P.C = true;
 
-            cpu.op_brk(Opcode::BRK, &mut mem);
+            cpu.op_brk(Opcode::BRK, mem);
             assert_eq!(
                 cpu.r.P,
                 StatusRegister {
@@ -644,13 +641,13 @@ mod CPU6510 {
             assert_eq!(u16::from(cpu.r.PC), ADDR_IRQ_VECTOR);
             assert_eq!(cpu.wait, 7);
             assert_eq!(
-                StatusRegister::from(cpu.pop(&mem)),
+                StatusRegister::from(cpu.pop(mem)),
                 StatusRegister {
                     C: true,
                     ..Default::default()
                 }
             );
-            assert_eq!(cpu.pop_addr(&mem), 0x1234 + 1);
+            assert_eq!(cpu.pop_addr(mem), 0x1234 + 1);
         }
     }
 }
