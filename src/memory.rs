@@ -20,11 +20,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#[macro_use]
-mod memory;
-mod cpu;
-mod component;
-
-fn main() {
-    println!("Hello, world!");
+macro_rules! mem_u8_fill {
+    ($mem:ident, $start:literal, $( $val:literal ),* ) => {
+        {
+            let mut addr = $start;
+            $(
+                $mem.write(addr, $val);
+                addr += 1;
+            )*
+        }
+    };
 }

@@ -526,6 +526,25 @@ mod CPU6510 {
         }
 
         fn op_adc(&mut self, op: Opcode, mem: &mut Memory) {
+            let v : u8 = match op {
+                Opcode::ADC_imm => self.fetch_insn(mem),
+                _ => 12
+            };
+            let c : u16 = if self.r.P.C { 1 } else { 0 };
+            let a : u16 = if !self.r.P.D {
+                // non decimal mode
+                self.r.A as u16 + v as u16 + c
+            } else {
+                // decimal mode
+                panic!("not implmented");
+                0
+            };
+            self.r.P.C = if a > 0xff { true } else { false };
+            let a8 : u8 = (a & 0xff) as u8;
+            // TODO
+            self.r.P.N = if (a8 & 0x80) > 0 { true } else { false };
+            self.r.P.Z = if a8 != 0 { false } else { true };
+            self.r.A = a8;
         }
 
         fn op_and(&mut self, op: Opcode, mem: &mut Memory) {}
@@ -671,6 +690,38 @@ mod CPU6510 {
                 }
             );
             assert_eq!(cpu.pop_addr(mem), 0x1234 + 1);
+        }
+
+        #[test]
+        fn op_adc_imm() {
+            let mut mem = &mut [0 as u8; 65535] as &mut dyn component::Memory<u16, u8>;
+            let mut cpu = CPU::new();
+            cpu.reset(mem);
+            // set some PC address and a carry bit
+            cpu.r.PC.set(0x00);
+            mem_u8_fill!(mem, 0x00,
+                         0x69, 0x00,
+                         0x69, 0x01,
+                         0x69, 0x0a,
+                         0x69, 0xff);
+            cpu.dispatch_one(mem);
+            assert_eq!(cpu.r.A, 0);
+            assert_eq!(cpu.r.P, StatusRegister{
+                Z: true,
+                ..Default::default()
+            });
+            assert_eq!(u16::from(cpu.r.PC), 0x0002);
+            cpu.dispatch_one(mem);
+            assert_eq!(cpu.r.A, 0x1);
+            assert_eq!(u16::from(cpu.r.PC), 0x0004);
+            cpu.dispatch_one(mem);
+            assert_eq!(cpu.r.A, 0xb);
+            cpu.dispatch_one(mem);
+            assert_eq!(cpu.r.A, 0x0a);
+            assert_eq!(cpu.r.P, StatusRegister{
+                C: true,
+                ..Default::default()
+            });
         }
     }
 }
